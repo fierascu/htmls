@@ -1,0 +1,581 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Regex Riff</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;900&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap">
+<style>
+/* Layout: one dark concert stage. Header strip, a perspective fretboard canvas with HUD and overlays, strike pads, then a decision log. Single dark look by choice. */
+:root{
+  color-scheme:dark;
+  --stage:#120C10; --panel:#1E1519; --panel-2:#2A1E23; --ink:#F3E9DC; --muted:#B3A094; --line:#3D2C33;
+  --brass:#E2B04A; --ivory:#F4EBDD; --bad:#F0565C; --good:#6FD39A;
+  --l0:#FF7A59; --l1:#FFC24B; --l2:#4FD1C5; --l3:#A78BFA;
+  --display:"Big Shoulders Display",Impact,"Arial Narrow",sans-serif;
+  --body:"IBM Plex Sans",ui-sans-serif,system-ui,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+}
+[hidden]{display:none!important}
+html,body{background:var(--stage);color:var(--ink)}
+body{font-family:var(--body);font-size:15px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:14px 40px}
+.wrap{max-width:1040px;margin:0 auto;display:grid;gap:12px}
+header{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px}
+h1{font-family:var(--display);font-weight:900;font-size:clamp(30px,6vw,46px);line-height:.9;margin:0;letter-spacing:.01em;text-transform:uppercase}
+h1 em{font-style:normal;color:var(--brass)}
+.ctrls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.seg{display:flex;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:3px}
+.seg button{font:600 13px var(--body);border:0;background:transparent;color:var(--muted);padding:6px 12px;border-radius:999px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--brass);color:#1A1208}
+.icon-btn{font:600 13px var(--body);background:var(--panel);border:1px solid var(--line);color:var(--ink);border-radius:999px;padding:7px 12px;cursor:pointer}
+button:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
+
+.stage{position:relative;border-radius:14px;overflow:hidden;background:#0B0709;border:1px solid var(--line);height:min(74vh,640px);min-height:400px}
+canvas{display:block;width:100%;height:100%;touch-action:none}
+.hud{position:absolute;inset:0;pointer-events:none;display:grid;grid-template-rows:auto 1fr;padding:12px}
+.hud-top{display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:start}
+.pattern{grid-column:2;text-align:center;background:rgba(18,12,16,.82);border:1px solid var(--brass);border-radius:10px;padding:6px 14px;max-width:min(560px,62vw)}
+.pattern .re{font:700 clamp(15px,2.6vw,24px)/1.25 var(--mono);color:var(--brass);overflow-wrap:anywhere}
+.pattern .tip{font-size:12px;color:var(--muted)}
+.stats{display:grid;gap:2px;font-variant-numeric:tabular-nums}
+.stats.l{justify-items:start}.stats.r{justify-items:end;text-align:right}
+.big{font:900 clamp(22px,3.6vw,34px)/1 var(--display)}
+.lbl{font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.mult{font:900 20px/1 var(--display);color:var(--brass)}
+.focus{width:min(140px,22vw);height:8px;border-radius:4px;background:var(--panel-2);overflow:hidden;border:1px solid var(--line)}
+.focus i{display:block;height:100%;background:var(--good);transition:width .15s}
+
+.overlay{position:absolute;inset:0;background:rgba(14,9,12,.88);overflow:auto;display:flex;justify-content:center;align-items:flex-start;padding:22px 16px}
+.sheet{width:min(640px,100%);display:grid;gap:14px}
+.sheet h2{font:900 clamp(30px,6vw,44px)/1 var(--display);text-transform:uppercase;margin:0;text-wrap:balance}
+.sheet p{margin:0;max-width:60ch}
+.eyebrow{font:600 11px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--brass)}
+.how{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px}
+.how div{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:14px}
+.how b{display:block;font-family:var(--display);font-size:20px;text-transform:uppercase;letter-spacing:.02em}
+.songs{list-style:none;padding:0;margin:0;display:grid;gap:6px}
+.songs button{width:100%;display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:12px;align-items:center;text-align:left;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;color:var(--ink);cursor:pointer;font:inherit}
+.songs button:hover{border-color:var(--brass)}
+.songs .n{font:700 13px var(--mono);color:var(--muted)}
+.songs .t{font:700 20px/1.05 var(--display);text-transform:uppercase;letter-spacing:.02em}
+.songs .re{display:block;font:500 12.5px var(--mono);color:var(--brass);overflow-wrap:anywhere}
+.songs .st{font-size:15px;color:var(--brass);letter-spacing:1px;white-space:nowrap}
+.songs .st .off{color:var(--line)}
+.btn{font:700 15px var(--body);border-radius:10px;padding:11px 18px;cursor:pointer;border:1px solid var(--line);background:var(--panel);color:var(--ink)}
+.btn.go{background:var(--brass);border-color:var(--brass);color:#1A1208}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.brief-re{font:700 clamp(22px,4vw,32px)/1.2 var(--mono);color:var(--brass);background:var(--panel);border:1px solid var(--brass);border-radius:10px;padding:10px 14px;overflow-wrap:anywhere}
+.ex{display:grid;gap:6px}
+.ex div{display:flex;gap:10px;align-items:baseline;font:500 15px var(--mono);background:var(--panel);border-radius:8px;padding:6px 10px;overflow-wrap:anywhere}
+.ex .v{font:700 11px var(--mono);letter-spacing:.1em;min-width:68px}
+.ex .v.y{color:var(--good)}.ex .v.n{color:var(--bad)}
+mark{background:rgba(226,176,74,.35);color:inherit;border-bottom:2px solid var(--brass);border-radius:2px}
+.kbd{font:700 12px var(--mono);border:1px solid var(--line);border-bottom-width:3px;border-radius:5px;padding:1px 6px;background:var(--panel-2)}
+.result-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px}
+.result-grid div{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-variant-numeric:tabular-nums}
+.result-grid b{display:block;font:900 28px/1.1 var(--display)}
+.stars-big{font-size:34px;color:var(--brass);letter-spacing:4px}
+.stars-big .off{color:var(--line)}
+.review{list-style:none;padding:0;margin:0;display:grid;gap:6px}
+.review li{background:var(--panel);border-left:3px solid var(--bad);border-radius:0 8px 8px 0;padding:8px 12px;display:grid;gap:2px}
+.review .s{font:500 15px var(--mono);overflow-wrap:anywhere}
+.review .why{font-size:13px;color:var(--muted)}
+
+.pads{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.pad{font:700 18px var(--mono);height:58px;border-radius:12px;border:2px solid var(--c);background:color-mix(in srgb,var(--c) 14%,var(--panel));color:var(--ink);cursor:pointer;touch-action:manipulation;user-select:none;-webkit-user-select:none}
+.pad.on{background:var(--c);color:#1A1208}
+.log{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.log h3{font:600 11px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin:0 0 8px}
+.log ul{list-style:none;margin:0;padding:0;display:grid;gap:4px}
+.log li{display:grid;grid-template-columns:76px minmax(0,1fr);gap:10px;font-size:14px;align-items:baseline}
+.log .v{font:700 11px var(--mono);letter-spacing:.08em}
+.log .s{font:500 14px var(--mono);overflow-wrap:anywhere}
+.log .why{color:var(--muted);font-family:var(--body);font-size:12.5px;margin-left:6px}
+.log .empty{color:var(--muted);font-size:14px}
+@media (max-width:560px){.hud-top{grid-template-columns:1fr 1fr}.pattern{grid-column:1/-1;grid-row:1;max-width:none}.stats.l{grid-row:2}.stats.r{grid-row:2}}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Regex <em>Riff</em></h1>
+    <div class="ctrls">
+      <div class="seg" role="group" aria-label="Setlist">
+        <button id="tr-basics" data-track="basics" aria-pressed="true">Basics</button>
+        <button id="tr-adv" data-track="advanced" aria-pressed="false">Advanced</button>
+      </div>
+      <div class="seg" role="group" aria-label="Speed">
+        <button id="sp-0" data-speed="0" aria-pressed="false">Chill</button>
+        <button id="sp-1" data-speed="1" aria-pressed="true">Stage</button>
+        <button id="sp-2" data-speed="2" aria-pressed="false">Shred</button>
+      </div>
+      <button class="icon-btn" id="sound" aria-pressed="true">Sound on</button>
+      <button class="icon-btn" id="pause">Setlist</button>
+    </div>
+  </header>
+
+  <div class="stage" id="stage">
+    <canvas id="cv"></canvas>
+    <div class="hud">
+      <div class="hud-top">
+        <div class="stats l">
+          <span class="lbl">Focus</span>
+          <div class="focus"><i id="focus" style="width:60%"></i></div>
+          <span class="lbl" style="margin-top:6px">Combo</span>
+          <span class="big" id="combo">0</span>
+        </div>
+        <div class="pattern"><div class="re" id="hud-re">/cat/</div><div class="tip" id="hud-tip">Strike what matches. Let the rest pass.</div></div>
+        <div class="stats r">
+          <span class="lbl">Score</span>
+          <span class="big" id="score">0</span>
+          <span class="mult" id="mult">×1</span>
+        </div>
+      </div>
+    </div>
+    <div class="overlay" id="ov"></div>
+  </div>
+
+  <div class="pads" id="pads">
+    <button class="pad" style="--c:var(--l0)" data-lane="0" aria-label="Lane 1">D</button>
+    <button class="pad" style="--c:var(--l1)" data-lane="1" aria-label="Lane 2">F</button>
+    <button class="pad" style="--c:var(--l2)" data-lane="2" aria-label="Lane 3">J</button>
+    <button class="pad" style="--c:var(--l3)" data-lane="3" aria-label="Lane 4">K</button>
+  </div>
+
+  <section class="log"><h3>Last calls</h3><ul id="log"><li class="empty">Each note you strike or skip shows up here with what the pattern actually matched.</li></ul></section>
+</div>
+
+<script>
+/*SONGS*/
+const r = String.raw;
+const SETLIST = {
+basics: [
+ {name:"Cat Scratch", re:"cat", bpm:92, tip:"Plain letters match themselves, anywhere in the string.",
+  pool:["cat","bobcat","concat","catalog","scatter","tomcat","dog","act","cart","cut","tac","coat","CAT","c at"]},
+ {name:"Dot Matrix", re:"c.t", bpm:94, tip:". is any one character.",
+  pool:["cat","cot","cut","c9t","c-t","acts c t","ct","coat","cart","cast","tact","C.T","cloth"]},
+ {name:"Gray Area", re:"gr[ae]y", bpm:96, tip:"[ae] is one character: a or e.",
+  pool:["gray","grey","greyhound","grayscale","angry eye","groy","gry","graey","grrey","gr ay","GRAY","pray"]},
+ {name:"Two Digit Jam", re:r`\d\d`, bpm:98, tip:r`\d is any digit. Two in a row here.`,
+  pool:["room 42","99 bottles","2026","a1b22","x 10","7up","a1b2","zero","1 2","x9","ten","4-2"]},
+ {name:"Goal Rush", re:"go+al", bpm:100, tip:"+ means one or more of the thing before it.",
+  pool:["goal","gooal","goooal","goalie","ego also","gal","goat","go al","gOal","gaol","gooa l"]},
+ {name:"Colour Theory", re:"colou?r", bpm:100, tip:"? makes the u optional.",
+  pool:["color","colour","colors","watercolour","colr","colouur","colur","colder","coulor","COLOR"]},
+ {name:"Count Five", re:r`\d{5}`, bpm:102, tip:r`{5} means exactly five in a row, but they can sit inside a longer number.`,
+  pool:["90210","zip 10001","123456","00000x","1234","12 345","9021","abcde","4-4444","1,2345"]},
+ {name:"Line Starter", re:"^ERR", bpm:104, tip:"^ anchors the match to the very start.",
+  pool:["ERROR","ERR 404","ERRAND","ERR","no ERR"," ERR","WARN ERR","err","xERROR"]},
+ {name:"Word Up", re:r`\bcat\b`, bpm:104, tip:r`\b is a word edge. cat must stand alone.`,
+  pool:["the cat","cat","a cat.","cat-like","(cat)","concat","bobcat","cats","catch","scat"]},
+ {name:"Escape Plan", re:r`3\.14`, bpm:106, tip:r`\. is a real dot. A bare . would match anything.`,
+  pool:["3.14","pi=3.14","3.141","x3.14x","3x14","3714","3,14","314","3. 14"]},
+ {name:"Weekend Off", re:"(Mon|Fri)day", bpm:108, tip:"| means or. The group keeps it to Mon or Fri.",
+  pool:["Monday","Friday","Fridays","Monday!","Sunday","Thursday","Mon day","monday","Fryday"]},
+ {name:"ISO Shred", re:r`\d{4}-\d\d-\d\d`, bpm:112, tip:"Everything together: a YYYY-MM-DD date.",
+  pool:["2026-10-29","1999-01-01","x2026-10-29","2000-12-31","26-10-29","2026/10/29","2026-1-29","2026-10-2","20261029"]},
+],
+advanced: [
+ {name:"Laugh Track", re:"(ha){2,}", bpm:104, tip:"A quantifier after a group repeats the whole group.",
+  pool:["haha","hahaha","ahaha!","oh hahaha","ha","hah ha","ah ah","HAHA","h a h a"]},
+ {name:"Full Stack", re:r`^[a-z]+\d+$`, bpm:106, tip:"^ and $ together: the whole string must fit.",
+  pool:["abc123","x1","nina26","zz9","abc-1","123abc","Abc1","abc","ab1c","abc1 "]},
+ {name:"Case Closed", re:"hello", flags:"i", bpm:106, tip:"The i flag ignores upper and lower case.",
+  pool:["Hello","HELLO","hElLo","say hello","help","hell o","helo","h3llo"]},
+ {name:"Double Take", re:r`\b(\w+) \1\b`, bpm:108, tip:r`\1 repeats exactly what group 1 matched.`,
+  pool:["the the","is is it","go go go","so so","the then","this is","a b a","no on"]},
+ {name:"Lookahead Lock", re:r`^(?=.*\d).{8,}$`, bpm:108, tip:"(?=.*\\d) checks for a digit somewhere, without using it up.",
+  pool:["secret12","a1b2c3d4","Tr0ubador","12345678","password","abc1","1234567","longword!"]},
+ {name:"No Exe", re:r`^(?!.*\.exe$).+$`, bpm:110, tip:"(?!…) succeeds only when the text does not follow.",
+  pool:["notes.txt","exe.pdf","run.exe.bak","photo.png","setup.exe","run.exe","a.exe"]},
+ {name:"Dollar Sign", re:r`(?<=\$)\d+`, bpm:110, tip:r`(?<=\$) means a $ must come right before the digits.`,
+  pool:["$42","cost $7","US$9","$1 or 2","42 USD","$ 5","$abc","5$"]},
+ {name:"Three of a Kind", re:r`(?<!\d)\d{3}(?!\d)`, bpm:112, tip:"Lookbehind and lookahead fence in exactly three digits.",
+  pool:["404","room 101","a123b","12 345","1234","12","4040","9 9 9"]},
+ {name:"Hex Appeal", re:r`^#([0-9a-f]{3}|[0-9a-f]{6})$`, flags:"i", bpm:112, tip:"Three or six hex digits after #, case ignored.",
+  pool:["#fff","#A1B2C3","#000","#c0ffee","#ffff","#ggg","fff","#12345","# fff"]},
+ {name:"Mail Run", re:r`^[\w.+-]+@[\w-]+(\.[\w-]+)+$`, bpm:114, tip:"A name part, @, a domain, then one or more .parts.",
+  pool:["ana@site.com","j.doe@ma.il","a+b@x.io","x@y.co.uk","@site.com","ana@","ana site.com","ana@site","a@b."]},
+ {name:"IPv4 Encore", re:r`^((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.){3}(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)$`, bpm:116, tip:"Each part is 0–255, spelled out as ranges.",
+  pool:["192.168.0.1","8.8.8.8","10.0.0.255","1.2.3.4","256.1.1.1","1.2.3","1.2.3.4.5","1.2.3.999"]},
+]};
+/*END*/
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const LANE_COLORS = ["#FF7A59","#FFC24B","#4FD1C5","#A78BFA"];
+const LX = [-0.75,-0.25,0.25,0.75];
+const KEYMAP = {d:0,f:1,j:2,k:3,"1":0,"2":1,"3":2,"4":3};
+const STRING_FREQ = [164.81,220.0,293.66,392.0];
+const SPEEDS = [{name:"Chill",travel:3.4,bpm:.82,drain:.5},{name:"Stage",travel:2.6,bpm:1,drain:1},{name:"Shred",travel:1.9,bpm:1.18,drain:1.25}];
+const ZS = 5, PERFECT = .065, GOOD = .16;
+
+let prefs = {track:"basics", speed:1, sound:true, best:{}};
+try { const s = JSON.parse(localStorage.getItem("riff-prefs")||"null"); if (s) prefs = Object.assign(prefs, s); } catch(e){}
+const savePrefs = () => { try { localStorage.setItem("riff-prefs", JSON.stringify(prefs)); } catch(e){} };
+
+const mkRe = song => new RegExp(song.re, song.flags||"");
+const showRe = song => "/" + song.re + "/" + (song.flags||"");
+function hlHTML(song, s){
+  const m = mkRe(song).exec(s);
+  if (!m) return esc(s);
+  if (m[0] === "") return esc(s.slice(0,m.index)) + "<mark>&#8203;</mark>" + esc(s.slice(m.index));
+  return esc(s.slice(0,m.index)) + "<mark>" + esc(m[0]) + "</mark>" + esc(s.slice(m.index+m[0].length));
+}
+
+/* ---------- audio ---------- */
+let ac = null, master = null;
+function audioInit(){
+  if (ac) { if (ac.state === "suspended") ac.resume(); return; }
+  try { ac = new (window.AudioContext||window.webkitAudioContext)(); master = ac.createGain(); master.gain.value = .5; master.connect(ac.destination); } catch(e){ ac = null; }
+}
+function env(g, t, a, peak, d){ g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(peak,t+a); g.gain.exponentialRampToValueAtTime(0.0001,t+d); }
+function pluck(lane, perfect){
+  if (!ac || !prefs.sound) return; const t = ac.currentTime, f = STRING_FREQ[lane];
+  const lp = ac.createBiquadFilter(); lp.type="lowpass"; lp.frequency.setValueAtTime(perfect?4200:2600,t); lp.frequency.exponentialRampToValueAtTime(380,t+.45);
+  const g = ac.createGain(); env(g,t,.004,.32,.7); lp.connect(g); g.connect(master);
+  for (const [type,mul,det] of [["sawtooth",1,0],["sawtooth",1,7],["triangle",2,0]]) { const o = ac.createOscillator(); o.type=type; o.frequency.value=f*mul; o.detune.value=det; o.connect(lp); o.start(t); o.stop(t+.75); }
+}
+function buzz(){
+  if (!ac || !prefs.sound) return; const t = ac.currentTime;
+  const g = ac.createGain(); env(g,t,.005,.22,.22); g.connect(master);
+  for (const f of [82,87]) { const o = ac.createOscillator(); o.type="square"; o.frequency.value=f; o.connect(g); o.start(t); o.stop(t+.25); }
+}
+function beatSound(accent){
+  if (!ac || !prefs.sound) return; const t = ac.currentTime;
+  const o = ac.createOscillator(), g = ac.createGain(); o.type="sine";
+  o.frequency.setValueAtTime(accent?150:110,t); o.frequency.exponentialRampToValueAtTime(45,t+.12);
+  env(g,t,.003,accent?.5:.28,.16); o.connect(g); g.connect(master); o.start(t); o.stop(t+.2);
+}
+function hat(){
+  if (!ac || !prefs.sound) return; const t = ac.currentTime, n = Math.floor(ac.sampleRate*.04);
+  const b = ac.createBuffer(1,n,ac.sampleRate), d = b.getChannelData(0); for (let i=0;i<n;i++) d[i]=Math.random()*2-1;
+  const s = ac.createBufferSource(); s.buffer=b; const hp = ac.createBiquadFilter(); hp.type="highpass"; hp.frequency.value=7000;
+  const g = ac.createGain(); env(g,t,.002,.08,.04); s.connect(hp); hp.connect(g); g.connect(master); s.start(t);
+}
+
+/* ---------- canvas ---------- */
+const cv = $("cv"), ctx = cv.getContext("2d");
+let W=0, H=0, F=0, HY=0, HH=0, CX=0, DPR=1;
+function resize(){
+  DPR = Math.min(2, window.devicePixelRatio||1);
+  W = cv.clientWidth; H = cv.clientHeight; cv.width = W*DPR; cv.height = H*DPR; ctx.setTransform(DPR,0,0,DPR,0,0);
+  CX = W/2; F = Math.min(W*.4, H*.62); HY = H*.2; HH = H*.82 - HY;
+}
+const P = (x,z) => ({x: CX + x*F/z, y: HY + HH/z, s: F/z});
+
+/* ---------- game state ---------- */
+let game = null, mode = "menu", songIdx = 0, lastTs = 0;
+const laneFlash = [0,0,0,0], laneText = [null,null,null,null];
+
+function buildChart(song){
+  const sp = SPEEDS[prefs.speed], bpm = song.bpm*sp.bpm, beat = 60/bpm;
+  const re = mkRe(song);
+  const yes = song.pool.filter(s=>re.test(s)), no = song.pool.filter(s=>!re.test(s));
+  const k0 = Math.max(4, Math.ceil(sp.travel/beat)+1);
+  const total = prefs.track === "advanced" ? 30 : 26;
+  const notes = []; let k = k0, lastLane = -1, sameRun = 0, lastStr = "";
+  const pick = () => { let s, tries=0; const m = Math.random() < .55; const arr = m ? yes : no; do { s = arr[Math.floor(Math.random()*arr.length)]; } while (s === lastStr && tries++ < 5); lastStr = s; return s; };
+  const laneAvoid = avoid => { let l; do { l = Math.floor(Math.random()*4); } while (l === avoid || (l === lastLane && sameRun >= 1)); return l; };
+  while (notes.length < total) {
+    const dens = prefs.speed === 0 ? .62 : .78;
+    if (Math.random() < dens || notes.length === 0) {
+      const lane = laneAvoid(-1); sameRun = lane === lastLane ? sameRun+1 : 0; lastLane = lane;
+      const s = pick(); notes.push({ta:k*beat, lane, s, m:re.test(s), st:"live"});
+      const dbl = (prefs.track === "advanced" || prefs.speed === 2) && Math.random() < .14 && notes.length < total;
+      if (dbl) { const l2 = laneAvoid(lane); const s2 = pick(); notes.push({ta:k*beat, lane:l2, s:s2, m:re.test(s2), st:"live"}); }
+      k += (prefs.speed === 2 && Math.random() < .25) ? .5 : 1;
+    } else k += 1;
+  }
+  return {notes, beat, travel:sp.travel, drain:sp.drain, end:notes[notes.length-1].ta + 1.4};
+}
+
+function startSong(i){
+  audioInit();
+  songIdx = i; const song = SETLIST[prefs.track][i]; const ch = buildChart(song);
+  game = {song, re:mkRe(song), ...ch, t:-.4, lastBeat:-1, score:0, combo:0, maxCombo:0, focus:60, correct:0, judged:0, perfects:0, mistakes:[], paused:false, failed:false};
+  $("hud-re").textContent = showRe(song); $("hud-tip").textContent = song.tip;
+  $("log").innerHTML = '<li class="empty">Each note you strike or skip shows up here with what the pattern actually matched.</li>';
+  mode = "play"; $("ov").hidden = true; $("pause").textContent = "Pause"; updateHud();
+}
+
+function mult(){ return Math.min(4, 1 + Math.floor(game.combo/8)); }
+function updateHud(){
+  if (!game) return;
+  $("score").textContent = game.score.toLocaleString(); $("combo").textContent = game.combo; $("mult").textContent = "×" + mult();
+  const f = $("focus"); f.style.width = Math.max(0,game.focus) + "%"; f.style.background = game.focus < 25 ? "var(--bad)" : game.focus < 50 ? "var(--brass)" : "var(--good)";
+}
+function addLog(n, verdict){
+  const ok = verdict === "PERFECT" || verdict === "GOOD" || verdict === "CLEAN";
+  const why = n.m ? (verdict === "MISS" ? "matched, you let it go" : "matched") : (verdict === "WRONG" ? "no match, you struck it" : "no match");
+  const ul = $("log"); const e = ul.querySelector(".empty"); if (e) e.remove();
+  const li = document.createElement("li");
+  li.innerHTML = `<span class="v" style="color:${ok?"var(--good)":"var(--bad)"}">${verdict}</span><span class="s">${hlHTML(game.song,n.s)}<span class="why">${why}</span></span>`;
+  ul.prepend(li); while (ul.children.length > 6) ul.lastChild.remove();
+}
+function resolve(n, verdict){
+  n.st = verdict; n.rt = game.t; game.judged++;
+  const good = verdict === "PERFECT" || verdict === "GOOD" || verdict === "CLEAN";
+  if (good) {
+    game.correct++; game.combo++; game.maxCombo = Math.max(game.maxCombo, game.combo);
+    game.score += ({PERFECT:100,GOOD:70,CLEAN:50})[verdict] * mult();
+    game.focus = Math.min(100, game.focus + (verdict==="CLEAN"?2:3));
+    if (verdict === "PERFECT") game.perfects++;
+  } else {
+    game.combo = 0; game.focus -= 13*game.drain; game.mistakes.push({s:n.s, m:n.m});
+    if (verdict === "WRONG") buzz();
+  }
+  laneText[n.lane] = {text:verdict, color: good ? (verdict==="CLEAN" ? "#B3A094" : LANE_COLORS[n.lane]) : "#F0565C", t:game.t};
+  addLog(n, verdict); updateHud();
+  if (game.focus <= 0) { game.failed = true; finish(); }
+}
+function strike(lane){
+  laneFlash[lane] = performance.now();
+  const pad = document.querySelector(`.pad[data-lane="${lane}"]`); pad.classList.add("on"); setTimeout(()=>pad.classList.remove("on"), 90);
+  if (mode !== "play" || !game || game.paused) return;
+  let best = null, bd = 1;
+  for (const n of game.notes) if (n.st === "live" && n.lane === lane) { const d = Math.abs(game.t - n.ta); if (d <= GOOD && d < bd) { bd = d; best = n; } }
+  if (!best) { laneText[lane] = {text:"·", color:"#6B5A60", t:game.t}; return; }
+  if (best.m) { const p = bd <= PERFECT; pluck(lane, p); resolve(best, p ? "PERFECT" : "GOOD"); }
+  else resolve(best, "WRONG");
+}
+
+function finish(){
+  mode = "results"; const g = game, song = g.song;
+  const total = g.notes.length, acc = g.judged ? g.correct/total : 0;
+  const stars = g.failed ? 0 : acc >= .95 ? 3 : acc >= .85 ? 2 : acc >= .7 ? 1 : 0;
+  const key = prefs.track + ":" + songIdx; if (stars > (prefs.best[key]||0)) { prefs.best[key] = stars; savePrefs(); }
+  const seen = new Set(); const mist = g.mistakes.filter(m => !seen.has(m.s) && seen.add(m.s));
+  const list = SETLIST[prefs.track]; const hasNext = songIdx < list.length - 1;
+  $("ov").innerHTML = `<div class="sheet">
+    <div class="eyebrow">${g.failed ? "Lost focus" : "Song complete"} · ${esc(SPEEDS[prefs.speed].name)}</div>
+    <h2>${esc(song.name)}</h2>
+    <div class="stars-big" aria-label="${stars} of 3 stars">${"★".repeat(stars)}<span class="off">${"★".repeat(3-stars)}</span></div>
+    <div class="result-grid">
+      <div><span class="lbl">Accuracy</span><b>${Math.round(acc*100)}%</b></div>
+      <div><span class="lbl">Score</span><b>${g.score.toLocaleString()}</b></div>
+      <div><span class="lbl">Best combo</span><b>${g.maxCombo}</b></div>
+      <div><span class="lbl">Perfect hits</span><b>${g.perfects}</b></div>
+    </div>
+    <p>Pattern <code style="font-family:var(--mono);color:var(--brass)">${esc(showRe(song))}</code>. ${stars < 3 && !g.failed ? "95% accuracy earns three stars." : ""}</p>
+    ${mist.length ? `<div class="eyebrow">Review your misses</div><ul class="review">${mist.slice(0,8).map(m=>`<li><span class="s">${hlHTML(song,m.s)}</span><span class="why">${m.m ? "This matches (highlighted part). Strike it next time." : "No match anywhere in this string. Let it pass."}</span></li>`).join("")}</ul>` : `<p>No mistakes. Clean run.</p>`}
+    <div class="row">
+      ${hasNext && !g.failed ? `<button class="btn go" id="r-next">Next song</button>` : ""}
+      <button class="btn ${hasNext && !g.failed ? "" : "go"}" id="r-again">Play again</button>
+      <button class="btn" id="r-list">Setlist</button>
+    </div></div>`;
+  $("ov").hidden = false; $("ov").scrollTop = 0; $("pause").textContent = "Setlist";
+  if ($("r-next")) $("r-next").onclick = () => brief(songIdx+1);
+  $("r-again").onclick = () => brief(songIdx);
+  $("r-list").onclick = menu;
+  ($("r-next")||$("r-again")).focus();
+}
+
+function brief(i){
+  mode = "brief"; songIdx = i; const song = SETLIST[prefs.track][i]; const re = mkRe(song);
+  const yes = song.pool.filter(s=>re.test(s)).slice(0,2), no = song.pool.filter(s=>!re.test(s)).slice(0,2);
+  $("hud-re").textContent = showRe(song); $("hud-tip").textContent = song.tip;
+  $("ov").innerHTML = `<div class="sheet">
+    <div class="eyebrow">${prefs.track === "basics" ? "Basics" : "Advanced"} · song ${i+1} of ${SETLIST[prefs.track].length} · ${esc(SPEEDS[prefs.speed].name)}</div>
+    <h2>${esc(song.name)}</h2>
+    <div class="brief-re">${esc(showRe(song))}</div>
+    <p>${esc(song.tip)}</p>
+    <div class="ex">
+      ${yes.map(s=>`<div><span class="v y">STRIKE</span><span>${hlHTML(song,s)}</span></div>`).join("")}
+      ${no.map(s=>`<div><span class="v n">LET PASS</span><span>${esc(s)}</span></div>`).join("")}
+    </div>
+    <div class="row"><button class="btn go" id="b-go">Play <span class="kbd" style="margin-left:6px">Space</span></button><button class="btn" id="b-back">Setlist</button></div>
+  </div>`;
+  $("ov").hidden = false; $("ov").scrollTop = 0; $("pause").textContent = "Setlist";
+  $("b-go").onclick = () => startSong(i); $("b-back").onclick = menu; $("b-go").focus();
+}
+
+function menu(){
+  mode = "menu"; game = null; $("pause").textContent = "Setlist";
+  const list = SETLIST[prefs.track];
+  $("ov").innerHTML = `<div class="sheet">
+    <div class="eyebrow">${prefs.track === "basics" ? "Basics setlist" : "Advanced setlist"}</div>
+    <h2>Strike what matches</h2>
+    <div class="how">
+      <div><b>Read</b>Each song has one pattern, shown at the top.</div>
+      <div><b>Strike</b>When a matching string reaches the line, hit its lane: <span class="kbd">D</span> <span class="kbd">F</span> <span class="kbd">J</span> <span class="kbd">K</span> or tap.</div>
+      <div><b>Let pass</b>Strings that don't match should roll by untouched.</div>
+    </div>
+    <ul class="songs">${list.map((s,i)=>{ const b = prefs.best[prefs.track+":"+i]||0;
+      return `<li><button data-i="${i}"><span class="n">${String(i+1).padStart(2,"0")}</span><span><span class="t">${esc(s.name)}</span><span class="re">${esc(showRe(s))}</span></span><span class="st" aria-label="${b} of 3 stars">${"★".repeat(b)}<span class="off">${"★".repeat(3-b)}</span></span></button></li>`; }).join("")}</ul>
+  </div>`;
+  $("ov").hidden = false; $("ov").scrollTop = 0;
+  $("ov").querySelectorAll(".songs button").forEach(b => b.onclick = () => brief(+b.dataset.i));
+  $("hud-re").textContent = showRe(list[0]); $("hud-tip").textContent = "Strike what matches. Let the rest pass.";
+  syncControls();
+}
+
+function pauseToggle(){
+  if (mode === "play" && game && !game.paused) {
+    game.paused = true; mode = "paused";
+    $("ov").innerHTML = `<div class="sheet"><div class="eyebrow">Paused</div><h2>${esc(game.song.name)}</h2>
+      <div class="brief-re">${esc(showRe(game.song))}</div>
+      <div class="row"><button class="btn go" id="p-res">Resume <span class="kbd" style="margin-left:6px">Esc</span></button><button class="btn" id="p-re">Restart</button><button class="btn" id="p-list">Setlist</button></div></div>`;
+    $("ov").hidden = false; $("pause").textContent = "Resume";
+    $("p-res").onclick = pauseToggle; $("p-re").onclick = () => startSong(songIdx); $("p-list").onclick = menu; $("p-res").focus();
+  } else if (mode === "paused") {
+    game.paused = false; game.t -= .8; mode = "play"; $("ov").hidden = true; $("pause").textContent = "Pause";
+  } else menu();
+}
+
+/* ---------- render ---------- */
+function roundRect(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+
+function draw(now){
+  const t = game ? game.t : now/1000*.6;
+  const speed = game ? (ZS-1)/game.travel : (ZS-1)/2.6;
+  const scroll = t*speed;
+  ctx.clearRect(0,0,W,H);
+  // backdrop: stage light cone
+  const bg = ctx.createRadialGradient(CX,HY*.6,10,CX,HY,H*.9);
+  bg.addColorStop(0,"#3A2229"); bg.addColorStop(.5,"#170E12"); bg.addColorStop(1,"#0B0709");
+  ctx.fillStyle = bg; ctx.fillRect(0,0,W,H);
+
+  // neck
+  const zFar = 16, zNear = .62, NW = 1.08;
+  const a = P(-NW,zFar), b = P(NW,zFar), c = P(NW,zNear), d = P(-NW,zNear);
+  const wood = ctx.createLinearGradient(0,a.y,0,c.y); wood.addColorStop(0,"#1A0F0C"); wood.addColorStop(.35,"#3B2219"); wood.addColorStop(1,"#5A3324");
+  ctx.fillStyle = wood; ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.lineTo(c.x,c.y); ctx.lineTo(d.x,d.y); ctx.closePath(); ctx.fill();
+  // binding edges
+  ctx.strokeStyle = "rgba(244,235,221,.35)"; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(d.x,d.y); ctx.moveTo(b.x,b.y); ctx.lineTo(c.x,c.y); ctx.stroke();
+  // frets + inlays
+  for (let i = Math.ceil(scroll + zNear - .6); i < scroll + zFar; i++) {
+    const z = .6 + i - scroll; if (z < zNear || z > zFar) continue;
+    const l = P(-NW,z), rr = P(NW,z), fade = Math.max(0, 1 - z/zFar);
+    ctx.strokeStyle = `rgba(226,176,74,${.75*fade})`; ctx.lineWidth = Math.max(1, 5/z);
+    ctx.beginPath(); ctx.moveTo(l.x,l.y); ctx.lineTo(rr.x,rr.y); ctx.stroke();
+    const idx = ((i % 12) + 12) % 12;
+    if (idx === 3 || idx === 5 || idx === 7 || idx === 9 || idx === 0) {
+      const zc = z + .5; if (zc < zFar) {
+        const pts = idx === 0 ? [-.5,.5] : [0];
+        for (const px of pts) { const q = P(px, zc); ctx.fillStyle = `rgba(244,235,221,${.28*Math.max(0,1-zc/zFar)})`; ctx.beginPath(); ctx.ellipse(q.x,q.y,.09*q.s,.04*q.s,0,0,Math.PI*2); ctx.fill(); }
+      }
+    }
+  }
+  // strings
+  const nowMs = performance.now();
+  for (let L = 0; L < 4; L++) {
+    const flash = Math.max(0, 1 - (nowMs - laneFlash[L])/220);
+    const thick = [3.4,2.7,2.1,1.6][L];
+    const s0 = P(LX[L], zFar), s1 = P(LX[L], zNear);
+    ctx.strokeStyle = flash ? LANE_COLORS[L] : "#C9CED6"; ctx.globalAlpha = .55 + .45*flash; ctx.lineWidth = thick + flash*2;
+    ctx.beginPath(); ctx.moveTo(s0.x,s0.y);
+    if (flash) { const mid = P(LX[L], 1.6); ctx.quadraticCurveTo(mid.x + Math.sin(nowMs/14)*4*flash, mid.y, s1.x, s1.y); } else ctx.lineTo(s1.x,s1.y);
+    ctx.stroke(); ctx.globalAlpha = 1;
+  }
+  // far fade
+  const fog = ctx.createLinearGradient(0,a.y,0,P(0,4).y); fog.addColorStop(0,"rgba(11,7,9,1)"); fog.addColorStop(1,"rgba(11,7,9,0)");
+  ctx.fillStyle = fog; ctx.fillRect(0,a.y-2,W,P(0,4).y-a.y+2);
+  // strike line
+  const sl = P(-NW,1), sr = P(NW,1);
+  ctx.strokeStyle = "rgba(244,235,221,.55)"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(sl.x,sl.y); ctx.lineTo(sr.x,sr.y); ctx.stroke();
+  for (let L = 0; L < 4; L++) {
+    const p = P(LX[L],1), flash = Math.max(0, 1 - (nowMs - laneFlash[L])/180);
+    ctx.lineWidth = 3; ctx.strokeStyle = LANE_COLORS[L];
+    ctx.fillStyle = flash ? LANE_COLORS[L] : "rgba(18,12,16,.85)";
+    ctx.beginPath(); ctx.ellipse(p.x,p.y,.2*p.s,.075*p.s,0,0,Math.PI*2); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = flash ? "#1A1208" : LANE_COLORS[L]; ctx.font = `700 ${Math.max(11,.07*p.s)}px "JetBrains Mono", monospace`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText("DFJK"[L], p.x, p.y+1);
+  }
+  // notes, far to near
+  if (game) {
+    const vis = game.notes.filter(n => {
+      if (n.st === "PERFECT" || n.st === "GOOD" || n.st === "WRONG") return game.t - n.rt < .45;
+      const z = 1 + (n.ta - game.t)/game.travel*(ZS-1); return z > .66 && z < ZS + .4;
+    }).map(n => { const fixed = n.st === "PERFECT" || n.st === "GOOD" || n.st === "WRONG"; return {n, z: fixed ? 1 : 1 + (n.ta - game.t)/game.travel*(ZS-1), fixed}; })
+      .sort((p,q) => q.z - p.z);
+    for (const {n,z,fixed} of vis) drawNote(n, z, fixed);
+    // lane feedback text
+    for (let L = 0; L < 4; L++) { const ft = laneText[L]; if (!ft) continue; const age = game.t - ft.t; if (age > .6 || age < 0) continue;
+      const p = P(LX[L],1); ctx.globalAlpha = 1 - age/.6; ctx.fillStyle = ft.color; ctx.font = `900 ${Math.max(16,.11*p.s)}px "Big Shoulders Display", Impact, sans-serif`;
+      ctx.textAlign = "center"; ctx.fillText(ft.text, p.x, p.y - .3*p.s - age*40); ctx.globalAlpha = 1; }
+    // count-in
+    if (game.t < game.notes[0].ta - game.travel + .1 && game.t > -0.4) {
+      const beatsLeft = Math.ceil((game.notes[0].ta - game.travel - game.t)/game.beat);
+      if (beatsLeft > 0 && beatsLeft <= 4) { ctx.fillStyle = "rgba(226,176,74,.9)"; ctx.font = `900 ${Math.min(120,H*.2)}px "Big Shoulders Display", Impact, sans-serif`; ctx.textAlign="center"; ctx.textBaseline="middle"; ctx.fillText(beatsLeft, CX, H*.5); }
+    }
+  }
+}
+
+function drawNote(n, z, fixed){
+  const p = P(LX[n.lane], z);
+  let font = Math.max(11, Math.min(26, .085*p.s));
+  ctx.font = `700 ${font}px "JetBrains Mono", monospace`;
+  let cw = ctx.measureText("M").width, tw = cw*n.s.length;
+  const maxW = Math.max(.62*p.s, 90);
+  if (tw > maxW - font) { font = Math.max(9, font*(maxW-font)/tw); ctx.font = `700 ${font}px "JetBrains Mono", monospace`; cw = ctx.measureText("M").width; tw = cw*n.s.length; }
+  const w = Math.max(tw + font*1.3, .36*p.s), h = font*1.9, x = p.x - w/2, y = p.y - h - .02*p.s;
+  let alpha = 1;
+  if (!fixed && z > ZS - .5) alpha = Math.max(0, (ZS + .4 - z)/.9);
+  if (fixed) alpha = 1 - (game.t - n.rt)/.45;
+  if ((n.st === "MISS" || n.st === "CLEAN") && z < 1) alpha *= Math.max(0, (z - .66)/.34);
+  ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
+  const lc = LANE_COLORS[n.lane];
+  let face = "#F4EBDD", ink = "#1C1410", edge = lc;
+  if (n.st === "PERFECT" || n.st === "GOOD") { face = lc; ink = "#1A1208"; }
+  else if (n.st === "WRONG") { face = "#F0565C"; ink = "#1A0B0C"; edge = "#F0565C"; }
+  else if (n.st === "MISS") { face = "#3A1E22"; ink = "#F0A0A3"; edge = "#F0565C"; }
+  else if (n.st === "CLEAN") { face = "#2A2226"; ink = "#9C8C84"; edge = "#4A3B42"; }
+  if (fixed && n.st !== "WRONG") { const g = 1 - (game.t - n.rt)/.45; ctx.shadowColor = lc; ctx.shadowBlur = 30*g; }
+  // slab side
+  ctx.fillStyle = "rgba(0,0,0,.55)"; roundRect(x, y + h*.18, w, h, Math.min(8,h*.3)); ctx.fill();
+  ctx.fillStyle = face; roundRect(x, y, w, h, Math.min(8,h*.3)); ctx.fill(); ctx.shadowBlur = 0;
+  ctx.lineWidth = Math.max(1.5, font*.12); ctx.strokeStyle = edge; ctx.stroke();
+  // text with match highlight once resolved
+  const tx = p.x - tw/2, ty = y + h/2 + 1;
+  if (n.st !== "live") {
+    const m = game.re.exec(n.s);
+    if (m && m[0].length) { ctx.fillStyle = n.st === "PERFECT" || n.st === "GOOD" ? "rgba(255,255,255,.55)" : "rgba(226,176,74,.75)"; ctx.fillRect(tx + m.index*cw - 1, y + h*.18, m[0].length*cw + 2, h*.64); }
+  }
+  ctx.fillStyle = ink; ctx.textAlign = "left"; ctx.textBaseline = "middle";
+  ctx.fillText(n.s, tx, ty);
+  ctx.globalAlpha = 1;
+}
+
+function frame(ts){
+  const dt = lastTs ? Math.min(.05, (ts - lastTs)/1000) : 0; lastTs = ts;
+  if (mode === "play" && game && !game.paused) {
+    game.t += dt;
+    const bi = Math.floor(game.t/game.beat*2);
+    if (game.t >= 0 && bi > game.lastBeat) { game.lastBeat = bi; if (bi % 2 === 0) beatSound(bi % 8 === 0); else hat(); }
+    for (const n of game.notes) if (n.st === "live" && game.t - n.ta > GOOD) { resolve(n, n.m ? "MISS" : "CLEAN"); if (mode !== "play") break; }
+    if (mode === "play" && game.t > game.end) finish();
+  }
+  draw(ts);
+  requestAnimationFrame(frame);
+}
+
+/* ---------- controls ---------- */
+function syncControls(){
+  document.querySelectorAll("[data-track]").forEach(b => b.setAttribute("aria-pressed", b.dataset.track === prefs.track));
+  document.querySelectorAll("[data-speed]").forEach(b => b.setAttribute("aria-pressed", +b.dataset.speed === prefs.speed));
+  $("sound").setAttribute("aria-pressed", prefs.sound); $("sound").textContent = prefs.sound ? "Sound on" : "Sound off";
+}
+document.querySelectorAll("[data-track]").forEach(b => b.onclick = () => { prefs.track = b.dataset.track; savePrefs(); menu(); });
+document.querySelectorAll("[data-speed]").forEach(b => b.onclick = () => { prefs.speed = +b.dataset.speed; savePrefs(); syncControls(); if (mode === "brief") brief(songIdx); else if (mode === "menu") menu(); });
+$("sound").onclick = () => { prefs.sound = !prefs.sound; savePrefs(); syncControls(); };
+$("pause").onclick = pauseToggle;
+document.querySelectorAll(".pad").forEach(p => p.addEventListener("pointerdown", e => { e.preventDefault(); audioInit(); strike(+p.dataset.lane); }));
+cv.addEventListener("pointerdown", e => {
+  if (mode !== "play") return; const rect = cv.getBoundingClientRect(); const x = e.clientX - rect.left;
+  const sl = P(-1,1).x, sr = P(1,1).x; const lane = Math.max(0, Math.min(3, Math.floor((x - sl)/(sr - sl)*4))); strike(lane);
+});
+window.addEventListener("keydown", e => {
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  const k = e.key.toLowerCase();
+  if (k in KEYMAP) { if (!e.repeat) strike(KEYMAP[k]); e.preventDefault(); return; }
+  if (k === "escape") { if (mode === "play" || mode === "paused") { pauseToggle(); e.preventDefault(); } return; }
+  if (k === " " && mode === "brief") { e.preventDefault(); startSong(songIdx); }
+});
+window.addEventListener("blur", () => { if (mode === "play") pauseToggle(); });
+document.addEventListener("visibilitychange", () => { if (document.hidden && mode === "play") pauseToggle(); });
+new ResizeObserver(resize).observe(cv);
+resize(); syncControls(); menu();
+(document.fonts ? document.fonts.ready : Promise.resolve()).then(() => requestAnimationFrame(frame));
+</script>
+
+</body></html>

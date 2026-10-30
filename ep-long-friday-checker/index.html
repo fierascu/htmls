@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+
+<html lang="en">
+
+<head>
+
+  <meta charset="UTF-8">
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>EP Long Friday Checker</title>
+
+  <style>
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+      transition: background-color 0.3s ease;
+    }
+
+    .container {
+      text-align: center;
+      padding: 2rem;
+      background: rgba(255, 255, 255, 0.9);
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+      max-width: 400px;
+    }
+
+    h1 {
+      margin-bottom: 0.5rem;
+    }
+
+    .date {
+      font-size: 1.2rem;
+      color: #555;
+    }
+
+    .status {
+      margin-top: 1rem;
+      font-weight: 500;
+      font-size: 1.1rem;
+    }
+
+    .long-friday {
+      color: #1565c0;
+    }
+
+    .normal {
+      color: #666;
+    }
+
+    .next-date {
+      margin-top: 1.5rem;
+      font-size: 0.9rem;
+      color: #777;
+    }
+  </style>
+
+</head>
+
+<body>
+
+  <div class="container">
+
+    <h1>🇪🇺 EP Long Friday Checker</h1>
+
+    <p class="date" id="currentDate"></p>
+
+    <p class="status" id="status"></p>
+
+    <p class="next-date" id="nextDate"></p>
+
+  </div>
+
+  <script>
+    // European Parliament Long Friday dates
+    const longFridays = [
+      "2025-12-12",
+      "2026-01-16",
+      "2026-02-06",
+      "2026-03-06",
+      "2026-04-24",
+      "2026-05-15",
+      "2026-06-12",
+      "2026-07-03",
+      "2026-09-11",
+      "2026-10-02",
+      "2026-10-16",
+      "2026-11-10",
+      "2026-11-20",
+      "2026-12-11"
+    ];
+    // Colors
+    const longFridayColor = "#bbdefb"; // Light blue for Long Fridays
+    const normalColor = "#f5f5f5"; // Light gray for normal days
+    function formatDate(date) {
+      return date.toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+    }
+
+    function getTodayString() {
+      const today = new Date();
+      const year = today.getFullYear();
+      const month = String(today.getMonth() + 1).padStart(2, '0');
+      const day = String(today.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+
+    function getNextLongFriday(todayStr) {
+      const upcoming = longFridays.filter(d => d > todayStr);
+      if (upcoming.length > 0) {
+        const nextDate = new Date(upcoming[0] + 'T00:00:00');
+        return formatDate(nextDate);
+      }
+      return null;
+    }
+
+    function checkDate() {
+      const today = new Date();
+      const todayStr = getTodayString();
+      const isLongFriday = longFridays.includes(todayStr);
+      document.getElementById('currentDate').textContent = formatDate(today);
+      document.body.style.backgroundColor = isLongFriday ? longFridayColor : normalColor;
+      const statusEl = document.getElementById('status');
+      if (isLongFriday) {
+        statusEl.textContent = "📋 Today is a Long Friday!";
+        statusEl.className = "status long-friday";
+      } else {
+        statusEl.textContent = "Not a Long Friday today.";
+        statusEl.className = "status normal";
+      }
+      const nextDateEl = document.getElementById('nextDate');
+      const nextLongFriday = getNextLongFriday(todayStr);
+      if (nextLongFriday && !isLongFriday) {
+        nextDateEl.textContent = `Next Long Friday: ${nextLongFriday}`;
+      } else if (isLongFriday) {
+        const nextAfterToday = getNextLongFriday(todayStr);
+        if (nextAfterToday) {
+          nextDateEl.textContent = `Following Long Friday: ${nextAfterToday}`;
+        }
+      } else {
+        nextDateEl.textContent = "";
+      }
+    }
+    checkDate();
+  </script>
+
+</body>
+
+</html>
